@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, LogOut, Loader2 } from "lucide-react";
+import { Send, LogOut, Loader2, Bot, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  id: string;
 }
 
 const Chat = () => {
@@ -54,7 +56,11 @@ const Chat = () => {
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
-    const userMessage: Message = { role: "user", content: input };
+    const userMessage: Message = { 
+      role: "user", 
+      content: input,
+      id: Date.now().toString()
+    };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -69,6 +75,7 @@ const Chat = () => {
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response,
+        id: (Date.now() + 1).toString()
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
@@ -87,87 +94,150 @@ const Chat = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/10">
       {/* Header */}
-      <header className="border-b border-border bg-card shadow-soft">
+      <motion.header 
+        className="border-b border-border bg-card/80 backdrop-blur-md shadow-soft sticky top-0 z-50"
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-primary">BharatData Connect</h1>
-            <span className="text-sm text-muted-foreground">Welcome, {userName}</span>
+            <motion.div
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Bot className="h-6 w-6 text-primary" />
+            </motion.div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-primary">BharatData Connect</h1>
+              <p className="text-xs text-muted-foreground">Welcome, {userName}</p>
+            </div>
           </div>
           <Button 
             onClick={handleLogout}
             variant="outline"
-            className="gap-2"
+            className="gap-2 hover:scale-105 transition-all"
           >
             <LogOut className="h-4 w-4" />
-            Logout
+            <span className="hidden sm:inline">Logout</span>
           </Button>
         </div>
-      </header>
+      </motion.header>
 
       {/* Chat Area */}
-      <main className="flex-1 container mx-auto px-4 py-6 overflow-hidden flex flex-col">
-        <Card className="flex-1 p-6 bg-gradient-card shadow-medium overflow-y-auto">
-          <div className="space-y-4">
+      <main className="flex-1 container mx-auto px-4 py-6 overflow-hidden flex flex-col max-w-4xl">
+        <Card className="flex-1 p-4 md:p-6 bg-card/50 backdrop-blur-sm shadow-medium overflow-y-auto border-border/50">
+          <AnimatePresence mode="popLayout">
             {messages.length === 0 && (
-              <div className="text-center text-muted-foreground py-12 animate-fade-in">
-                <p className="text-lg">Start a conversation about India's data and insights</p>
-              </div>
-            )}
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-slide-up`}
+              <motion.div 
+                className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-12"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
               >
-                <div
-                  className={`max-w-[70%] rounded-lg px-4 py-3 ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
-                  }`}
+                <Bot className="h-16 w-16 mb-4 text-primary opacity-50" />
+                <p className="text-lg font-medium mb-2">Start a conversation</p>
+                <p className="text-sm">Ask me anything about India's data and insights</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <div className="space-y-4">
+            <AnimatePresence initial={false}>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
+                  {msg.role === "assistant" && (
+                    <div className="flex-shrink-0 mt-1">
+                      <div className="p-2 bg-primary/10 rounded-full">
+                        <Bot className="h-4 w-4 text-primary" />
+                      </div>
+                    </div>
+                  )}
+                  <motion.div
+                    className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-soft ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border border-border/50"
+                    }`}
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  </motion.div>
+                  {msg.role === "user" && (
+                    <div className="flex-shrink-0 mt-1">
+                      <div className="p-2 bg-primary rounded-full">
+                        <User className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            
             {loading && (
-              <div className="flex justify-start animate-fade-in">
-                <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-3 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Thinking...</span>
+              <motion.div 
+                className="flex gap-3 justify-start"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="flex-shrink-0 mt-1">
+                  <div className="p-2 bg-primary/10 rounded-full">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
                 </div>
-              </div>
+                <div className="bg-card border border-border/50 rounded-2xl px-4 py-3 shadow-soft flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                </div>
+              </motion.div>
             )}
             <div ref={messagesEndRef} />
           </div>
         </Card>
 
         {/* Input Bar */}
-        <div className="mt-4">
-          <div className="flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about India's data..."
-              disabled={loading}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-              className="bg-primary hover:bg-primary-hover transition-all hover:scale-105"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <motion.div 
+          className="mt-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="p-2 shadow-medium bg-card/80 backdrop-blur-sm border-border/50">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about India's data..."
+                disabled={loading}
+                className="flex-1 border-0 focus-visible:ring-1 bg-transparent"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="bg-primary hover:bg-primary-hover transition-all hover:scale-105 shadow-soft"
+                size="icon"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        </motion.div>
       </main>
 
       {/* Footer */}
-      <footer className="py-4 border-t border-border">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+      <footer className="py-4 border-t border-border bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 text-center text-xs text-muted-foreground">
           © 2025 BharatData Connect | All Rights Reserved
         </div>
       </footer>
