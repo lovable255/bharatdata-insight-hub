@@ -4,14 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Send, LogOut, Loader2, Bot, User } from "lucide-react";
+import { Typewriter } from "@/components/ui/typewriter";
+import { pageVariants, messageBubbleVariants, typingDotVariants, buttonTap } from "@/lib/animations";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   id: string;
+  isTyping?: boolean;
 }
 
 const Chat = () => {
@@ -75,7 +79,8 @@ const Chat = () => {
       const assistantMessage: Message = {
         role: "assistant",
         content: data.response,
-        id: (Date.now() + 1).toString()
+        id: (Date.now() + 1).toString(),
+        isTyping: true
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
@@ -94,7 +99,13 @@ const Chat = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/10">
+    <motion.div 
+      className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/10"
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
       {/* Header */}
       <motion.header 
         className="border-b border-border bg-card/80 backdrop-blur-md shadow-soft sticky top-0 z-50"
@@ -115,14 +126,12 @@ const Chat = () => {
               <p className="text-xs text-muted-foreground">Welcome, {userName}</p>
             </div>
           </div>
-          <Button 
-            onClick={handleLogout}
-            variant="outline"
-            className="gap-2 hover:scale-105 transition-all"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </Button>
+          <motion.div whileTap={buttonTap} whileHover={{ scale: 1.05 }}>
+            <Button onClick={handleLogout} variant="outline" className="gap-2">
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </Button>
+          </motion.div>
         </div>
       </motion.header>
 
@@ -146,42 +155,64 @@ const Chat = () => {
           
           <div className="space-y-4">
             <AnimatePresence initial={false}>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  {msg.role === "assistant" && (
-                    <div className="flex-shrink-0 mt-1">
-                      <div className="p-2 bg-primary/10 rounded-full">
-                        <Bot className="h-4 w-4 text-primary" />
-                      </div>
-                    </div>
-                  )}
+              {messages.map((msg, index) => {
+                const isUser = msg.role === "user";
+                const variants = isUser ? messageBubbleVariants.user : messageBubbleVariants.assistant;
+                
+                return (
                   <motion.div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-soft ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card border border-border/50"
-                    }`}
-                    whileHover={{ scale: 1.01 }}
-                    transition={{ duration: 0.2 }}
+                    key={msg.id}
+                    variants={variants}
+                    initial="initial"
+                    animate="animate"
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                  </motion.div>
-                  {msg.role === "user" && (
-                    <div className="flex-shrink-0 mt-1">
-                      <div className="p-2 bg-primary rounded-full">
-                        <User className="h-4 w-4 text-primary-foreground" />
+                    {!isUser && (
+                      <div className="flex-shrink-0 mt-1">
+                        <motion.div 
+                          className="p-2 bg-primary/10 rounded-full"
+                          whileHover={{ rotate: 360 }}
+                          transition={{ duration: 0.6 }}
+                        >
+                          <Bot className="h-4 w-4 text-primary" />
+                        </motion.div>
                       </div>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                    )}
+                    <motion.div
+                      className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-soft ${
+                        isUser
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card border border-border/50"
+                      }`}
+                      whileHover={{ scale: 1.01, boxShadow: "0 8px 16px -8px hsl(var(--primary) / 0.15)" }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {!isUser && msg.isTyping && index === messages.length - 1 ? (
+                        <Typewriter 
+                          text={msg.content} 
+                          speed={20}
+                          className="text-sm leading-relaxed whitespace-pre-wrap"
+                          onComplete={() => {
+                            setMessages(prev => prev.map((m, i) => 
+                              i === index ? { ...m, isTyping: false } : m
+                            ));
+                          }}
+                        />
+                      ) : (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                    </motion.div>
+                    {isUser && (
+                      <div className="flex-shrink-0 mt-1">
+                        <div className="p-2 bg-primary rounded-full">
+                          <User className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
             
             {loading && (
@@ -195,9 +226,12 @@ const Chat = () => {
                     <Bot className="h-4 w-4 text-primary" />
                   </div>
                 </div>
-                <div className="bg-card border border-border/50 rounded-2xl px-4 py-3 shadow-soft flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                <div className="bg-card border border-border/50 rounded-2xl px-4 py-3 shadow-soft">
+                  <div className="flex items-center gap-2">
+                    <motion.span variants={typingDotVariants} initial="initial" animate="animate" className="w-2 h-2 bg-primary rounded-full" />
+                    <motion.span variants={typingDotVariants} initial="initial" animate="animate" transition={{ delay: 0.1 }} className="w-2 h-2 bg-primary rounded-full" />
+                    <motion.span variants={typingDotVariants} initial="initial" animate="animate" transition={{ delay: 0.2 }} className="w-2 h-2 bg-primary rounded-full" />
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -222,14 +256,11 @@ const Chat = () => {
                 disabled={loading}
                 className="flex-1 border-0 focus-visible:ring-1 bg-transparent"
               />
-              <Button
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="bg-primary hover:bg-primary-hover transition-all hover:scale-105 shadow-soft"
-                size="icon"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              <motion.div whileTap={buttonTap} whileHover={{ scale: 1.05 }}>
+                <Button onClick={handleSend} disabled={loading || !input.trim()} className="bg-primary hover:bg-primary-hover shadow-soft" size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </motion.div>
             </div>
           </Card>
         </motion.div>
@@ -241,7 +272,7 @@ const Chat = () => {
           © 2025 BharatData Connect | All Rights Reserved
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 };
 

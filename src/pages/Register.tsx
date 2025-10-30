@@ -12,6 +12,7 @@ import { Loader2, UserPlus } from "lucide-react";
 const Register = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
